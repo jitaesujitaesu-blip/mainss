@@ -153,6 +153,9 @@ class Game:
         self.available_points = 10
         self.enemy_spawn_min = 1
         self.enemy_spawn_max = 3
+        # 타임라인 초기화
+        self.timeline_events = []
+        self.timeline_visible = False
     
     def add_timeline_event(self, message):
         """타임라인에 이벤트 추가"""
@@ -193,11 +196,6 @@ class Game:
         
         # 게임 타이머 (레벨업 후에도 유지)
         # game_start_time, game_time, last_difficulty_increase_time은 초기화하지 않음
-        
-        # 타임라인 초기화 (새 게임 시작 시)
-        if self.game_start_time == 0:
-            self.timeline_events = []
-            self.timeline_visible = False
         
         # 플레이어 체력
         self.player_hp = 100
@@ -629,7 +627,7 @@ class Game:
                         (timeline_x, timeline_y, timeline_width, timeline_height), 3)
         
         # 제목 (미리 생성된 폰트 사용)
-        title = self.timeline_title_font.render("오늘의 대화 타임라인", True, (0, 200, 255))
+        title = self.timeline_title_font.render("오늘의 게임 타임라인", True, (0, 200, 255))
         self.screen.blit(title, (timeline_x + 20, timeline_y + 15))
         
         # 이벤트 목록 (최신 것부터, 미리 생성된 폰트 사용)
@@ -669,7 +667,7 @@ class Game:
                 self.schedule_enemy_spawn()
             self.last_enemy_spawn = current_time
             if spawn_count >= self.TIMELINE_LARGE_SPAWN_THRESHOLD:
-                self.add_timeline_event(f"적 대규모 공격 감지! ({spawn_count}체)")
+                self.add_timeline_event(f"적 대규모 공격 감지! ({spawn_count}마리)")
         
         # 예고된 적 생성 처리
         self.process_enemy_warnings(current_time)
@@ -797,7 +795,7 @@ class Game:
         
         # 제거된 적이 있으면 타임라인에 추가 (일정 수 이상일 때만)
         if killed_count >= self.TIMELINE_MULTI_KILL_THRESHOLD:
-            self.add_timeline_event(f"적 {killed_count}체 제거!")
+            self.add_timeline_event(f"적 {killed_count}마리 제거!")
         
         # 충돌 체크
         self.check_collisions()
