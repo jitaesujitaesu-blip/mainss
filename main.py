@@ -182,6 +182,11 @@ class Game:
         # 게임 타이머 (레벨업 후에도 유지)
         # game_start_time, game_time, last_difficulty_increase_time은 초기화하지 않음
         
+        # 타임라인 초기화 (새 게임 시작 시)
+        if self.game_start_time == 0:
+            self.timeline_events = []
+            self.timeline_visible = False
+        
         # 플레이어 체력
         self.player_hp = 100
         self.max_hp = 100
@@ -219,6 +224,16 @@ class Game:
                 if self.start_button.collidepoint(mouse_pos):
                     self.state = "coding"  # 코딩 창으로 이동
                     self.code_input = ""  # 코드 입력 초기화
+                    # 새 게임 시작 시 게임 변수 리셋
+                    self.game_start_time = 0
+                    self.game_time = 0
+                    self.last_difficulty_increase_time = 0
+                    self.level = 1
+                    self.required_exp = 7
+                    self.current_exp = 0
+                    self.available_points = 10
+                    self.enemy_spawn_min = 1
+                    self.enemy_spawn_max = 3
                     print("코딩 창 시작!")
                 elif self.tutorial_button.collidepoint(mouse_pos):
                     self.state = "tutorial"
@@ -1031,8 +1046,6 @@ class Game:
                 elif event.key == pygame.K_t:
                     # T 키로 타임라인 토글
                     self.timeline_visible = not self.timeline_visible
-                    if self.timeline_visible:
-                        self.add_timeline_event("타임라인 열람 시작")
         
         return True
     
@@ -1059,6 +1072,16 @@ class Game:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if self.home_button.collidepoint(mouse_pos):
                     self.state = "menu"
+                    # 게임 오버 후 메뉴로 돌아갈 때 게임 변수 리셋
+                    self.game_start_time = 0
+                    self.game_time = 0
+                    self.last_difficulty_increase_time = 0
+                    self.level = 1
+                    self.required_exp = 7
+                    self.current_exp = 0
+                    self.available_points = 10
+                    self.enemy_spawn_min = 1
+                    self.enemy_spawn_max = 3
         
         return True
     
@@ -1093,6 +1116,7 @@ class Game:
                                 self.last_difficulty_increase_time = 0
                                 self.add_timeline_event("게임 시작! AI를 해킹하라!")
                             else:
+                                # 게임 진행 중 업그레이드일 때만 기록
                                 self.add_timeline_event(f"무기 업그레이드 완료 (레벨 {self.level})")
                             print(f"입력된 코드: {self.code_input}")
                             print(f"총 설정 - 데미지: {self.gun_damage}, 공격속도: {self.gun_attack_speed} (발사간격: {self.gun_fire_interval}ms), 폭발범위: {self.gun_explosion_range}")
