@@ -142,6 +142,18 @@ class Game:
             button_height
         )
     
+    def reset_game_variables(self):
+        """게임 변수 리셋 (새 게임 시작 시)"""
+        self.game_start_time = 0
+        self.game_time = 0
+        self.last_difficulty_increase_time = 0
+        self.level = 1
+        self.required_exp = 7
+        self.current_exp = 0
+        self.available_points = 10
+        self.enemy_spawn_min = 1
+        self.enemy_spawn_max = 3
+    
     def add_timeline_event(self, message):
         """타임라인에 이벤트 추가"""
         current_time = pygame.time.get_ticks()
@@ -225,15 +237,7 @@ class Game:
                     self.state = "coding"  # 코딩 창으로 이동
                     self.code_input = ""  # 코드 입력 초기화
                     # 새 게임 시작 시 게임 변수 리셋
-                    self.game_start_time = 0
-                    self.game_time = 0
-                    self.last_difficulty_increase_time = 0
-                    self.level = 1
-                    self.required_exp = 7
-                    self.current_exp = 0
-                    self.available_points = 10
-                    self.enemy_spawn_min = 1
-                    self.enemy_spawn_max = 3
+                    self.reset_game_variables()
                     print("코딩 창 시작!")
                 elif self.tutorial_button.collidepoint(mouse_pos):
                     self.state = "tutorial"
@@ -1073,15 +1077,7 @@ class Game:
                 if self.home_button.collidepoint(mouse_pos):
                     self.state = "menu"
                     # 게임 오버 후 메뉴로 돌아갈 때 게임 변수 리셋
-                    self.game_start_time = 0
-                    self.game_time = 0
-                    self.last_difficulty_increase_time = 0
-                    self.level = 1
-                    self.required_exp = 7
-                    self.current_exp = 0
-                    self.available_points = 10
-                    self.enemy_spawn_min = 1
-                    self.enemy_spawn_max = 3
+                    self.reset_game_variables()
         
         return True
     
