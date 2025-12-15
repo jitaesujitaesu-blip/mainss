@@ -63,12 +63,16 @@ class Game:
             # 폰트 파일 로드 시도
             self.title_font = pygame.font.Font("fonts/H2GPRM.TTF", 100)
             self.menu_font = pygame.font.Font("fonts/H2GPRM.TTF", 50)
+            self.timeline_title_font = pygame.font.Font("fonts/H2GPRM.TTF", 40)
+            self.timeline_event_font = pygame.font.Font("fonts/H2GPRM.TTF", 30)
             print("H2GPRM 폰트 로딩 성공")
         except Exception as e:
             # 폰트 로드 실패 시 시스템 폰트 사용
             print(f"폰트 로딩 실패: {e}, 시스템 폰트 사용")
             self.title_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', 100)
             self.menu_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', 50)
+            self.timeline_title_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', 40)
+            self.timeline_event_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', 30)
         
         # 게임 상태 변수 (화면 전환용)
         self.state = "menu"  # 현재 상태: menu, coding, tutorial, game, gameover
@@ -149,6 +153,10 @@ class Game:
             time_str = f"{minutes:02d}:{seconds:02d}"
         else:
             time_str = "00:00"
+        
+        # 메시지가 너무 길면 미리 잘라내기 (렌더링 최적화)
+        if len(message) > self.TIMELINE_MESSAGE_MAX_LENGTH:
+            message = message[:self.TIMELINE_MESSAGE_MAX_LENGTH] + "..."
         
         self.timeline_events.append((time_str, message))
         
@@ -601,35 +609,19 @@ class Game:
         pygame.draw.rect(self.screen, (0, 200, 255), 
                         (timeline_x, timeline_y, timeline_width, timeline_height), 3)
         
-        # 제목
-        try:
-            title_font = pygame.font.Font("fonts/H2GPRM.TTF", 40)
-        except:
-            title_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', 40)
-        
-        title = title_font.render("오늘의 대화 타임라인", True, (0, 200, 255))
+        # 제목 (미리 생성된 폰트 사용)
+        title = self.timeline_title_font.render("오늘의 대화 타임라인", True, (0, 200, 255))
         self.screen.blit(title, (timeline_x + 20, timeline_y + 15))
         
-        # 이벤트 목록 (최신 것부터)
-        event_font_size = 30
-        try:
-            event_font = pygame.font.Font("fonts/H2GPRM.TTF", event_font_size)
-        except:
-            event_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', event_font_size)
-        
+        # 이벤트 목록 (최신 것부터, 미리 생성된 폰트 사용)
         y_offset = timeline_y + 70
         line_height = 35
         
-        # 최신 이벤트부터 표시 (역순)
-        display_events = self.timeline_events[-12:]  # 최대 12개
+        # 최신 이벤트부터 표시 (역순) - 최대 12개
+        display_events = self.timeline_events[-12:]
         for time_str, message in reversed(display_events):
-            # 텍스트가 너무 길면 잘라내기
-            if len(message) > self.TIMELINE_MESSAGE_MAX_LENGTH:
-                truncated_message = message[:self.TIMELINE_MESSAGE_MAX_LENGTH] + "..."
-            else:
-                truncated_message = message
-            
-            event_text = event_font.render(f"[{time_str}] {truncated_message}", True, self.WHITE)
+            # 메시지는 add_timeline_event에서 이미 잘라냄
+            event_text = self.timeline_event_font.render(f"[{time_str}] {message}", True, self.WHITE)
             self.screen.blit(event_text, (timeline_x + 20, y_offset))
             y_offset += line_height
             
