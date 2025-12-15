@@ -41,6 +41,11 @@ class Game:
     ENEMY_TYPE1_HP = 10  # 근거리 적 체력
     ENEMY_TYPE2_HP = 5  # 원거리 적 체력
     
+    # 타임라인 상수 정의
+    TIMELINE_LARGE_SPAWN_THRESHOLD = 5  # 대규모 공격 판정 최소 적 수
+    TIMELINE_MULTI_KILL_THRESHOLD = 3  # 다수 제거 판정 최소 적 수
+    TIMELINE_MESSAGE_MAX_LENGTH = 50  # 타임라인 메시지 최대 길이
+    
     def __init__(self):
         """ 게임 초기화 (생성자) """
         pygame.init()  # pygame 모듈 초기화
@@ -597,7 +602,6 @@ class Game:
                         (timeline_x, timeline_y, timeline_width, timeline_height), 3)
         
         # 제목
-        title_font = pygame.font.Font(self.menu_font.get_fonts()[0] if hasattr(self.menu_font, 'get_fonts') else None, 40) if isinstance(self.menu_font, pygame.font.Font) else self.menu_font
         try:
             title_font = pygame.font.Font("fonts/H2GPRM.TTF", 40)
         except:
@@ -619,13 +623,13 @@ class Game:
         # 최신 이벤트부터 표시 (역순)
         display_events = self.timeline_events[-12:]  # 최대 12개
         for time_str, message in reversed(display_events):
-            event_text = event_font.render(f"[{time_str}] {message}", True, self.WHITE)
             # 텍스트가 너무 길면 잘라내기
-            if event_text.get_width() > timeline_width - 40:
-                # 텍스트 잘라내기
-                truncated_message = message[:50] + "..."
-                event_text = event_font.render(f"[{time_str}] {truncated_message}", True, self.WHITE)
+            if len(message) > self.TIMELINE_MESSAGE_MAX_LENGTH:
+                truncated_message = message[:self.TIMELINE_MESSAGE_MAX_LENGTH] + "..."
+            else:
+                truncated_message = message
             
+            event_text = event_font.render(f"[{time_str}] {truncated_message}", True, self.WHITE)
             self.screen.blit(event_text, (timeline_x + 20, y_offset))
             y_offset += line_height
             
@@ -653,7 +657,7 @@ class Game:
             for _ in range(spawn_count):
                 self.schedule_enemy_spawn()
             self.last_enemy_spawn = current_time
-            if spawn_count >= 5:
+            if spawn_count >= self.TIMELINE_LARGE_SPAWN_THRESHOLD:
                 self.add_timeline_event(f"적 대규모 공격 감지! ({spawn_count}체)")
         
         # 예고된 적 생성 처리
@@ -781,7 +785,7 @@ class Game:
                 self.explosions.remove(explosion)
         
         # 제거된 적이 있으면 타임라인에 추가 (일정 수 이상일 때만)
-        if killed_count >= 3:
+        if killed_count >= self.TIMELINE_MULTI_KILL_THRESHOLD:
             self.add_timeline_event(f"적 {killed_count}체 제거!")
         
         # 충돌 체크
