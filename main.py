@@ -41,6 +41,11 @@ class Game:
     ENEMY_TYPE1_HP = 10  # 근거리 적 체력
     ENEMY_TYPE2_HP = 5  # 원거리 적 체력
     
+    # 타임라인 상수 정의
+    TIMELINE_LARGE_SPAWN_THRESHOLD = 5  # 대규모 공격 판정 최소 적 수
+    TIMELINE_MULTI_KILL_THRESHOLD = 3  # 다수 제거 판정 최소 적 수
+    TIMELINE_MESSAGE_MAX_LENGTH = 50  # 타임라인 메시지 최대 길이
+    
     def __init__(self):
         """ 게임 초기화 (생성자) """
         pygame.init()  # pygame 모듈 초기화
@@ -58,12 +63,16 @@ class Game:
             # 폰트 파일 로드 시도
             self.title_font = pygame.font.Font("fonts/H2GPRM.TTF", 100)
             self.menu_font = pygame.font.Font("fonts/H2GPRM.TTF", 50)
+            self.timeline_title_font = pygame.font.Font("fonts/H2GPRM.TTF", 40)
+            self.timeline_event_font = pygame.font.Font("fonts/H2GPRM.TTF", 30)
             print("H2GPRM 폰트 로딩 성공")
         except Exception as e:
             # 폰트 로드 실패 시 시스템 폰트 사용
             print(f"폰트 로딩 실패: {e}, 시스템 폰트 사용")
             self.title_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', 100)
             self.menu_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', 50)
+            self.timeline_title_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', 40)
+            self.timeline_event_font = pygame.font.SysFont('malgungothic,nanumgothic,arial', 30)
         
         # 게임 상태 변수 (화면 전환용)
         self.state = "menu"  # 현재 상태: menu, coding, tutorial, game, gameover
@@ -87,6 +96,11 @@ class Game:
         self.game_start_time = 0  # 게임 시작 시간
         self.game_time = 0  # 경과 시간
         self.last_difficulty_increase_time = 0  # 마지막 난이도 증가 시간
+        
+        # 타임라인 시스템 변수
+        self.timeline_visible = False  # 타임라인 표시 여부
+        self.timeline_events = []  # 타임라인 이벤트 리스트 [(time, message), ...]
+        self.max_timeline_events = 20  # 최대 저장 이벤트 수
         
         # 총 설정 변수 (코딩창에서 설정)
         self.gun_damage = 5  # 총알 데미지
@@ -127,6 +141,43 @@ class Game:
             button_width,
             button_height
         )
+    
+    def reset_game_variables(self):
+        """게임 변수 리셋 (새 게임 시작 시)"""
+        self.game_start_time = 0
+        self.game_time = 0
+        self.last_difficulty_increase_time = 0
+        self.level = 1
+        self.required_exp = 7
+        self.current_exp = 0
+        self.available_points = 10
+        self.enemy_spawn_min = 1
+        self.enemy_spawn_max = 3
+        # 타임라인 초기화
+        self.timeline_events = []
+        self.timeline_visible = False
+    
+    def add_timeline_event(self, message):
+        """타임라인에 이벤트 추가"""
+        current_time = pygame.time.get_ticks()
+        # 게임 시작 시간 기준으로 경과 시간 계산
+        if self.game_start_time > 0:
+            elapsed = (current_time - self.game_start_time) / 1000.0
+            minutes = int(elapsed // 60)
+            seconds = int(elapsed % 60)
+            time_str = f"{minutes:02d}:{seconds:02d}"
+        else:
+            time_str = "00:00"
+        
+        # 메시지가 너무 길면 미리 잘라내기 (렌더링 최적화)
+        if len(message) > self.TIMELINE_MESSAGE_MAX_LENGTH:
+            message = message[:self.TIMELINE_MESSAGE_MAX_LENGTH] + "..."
+        
+        self.timeline_events.append((time_str, message))
+        
+        # 최대 이벤트 수 제한
+        if len(self.timeline_events) > self.max_timeline_events:
+            self.timeline_events.pop(0)
     
     def init_game_variables(self):
         """게임 변수 초기화"""
@@ -183,6 +234,8 @@ class Game:
                 if self.start_button.collidepoint(mouse_pos):
                     self.state = "coding"  # 코딩 창으로 이동
                     self.code_input = ""  # 코드 입력 초기화
+                    # 새 게임 시작 시 게임 변수 리셋
+                    self.reset_game_variables()
                     print("코딩 창 시작!")
                 elif self.tutorial_button.collidepoint(mouse_pos):
                     self.state = "tutorial"
@@ -547,6 +600,51 @@ class Game:
         hp_text_rect = hp_text.get_rect(center=(hp_bar_x + hp_bar_width // 2, hp_bar_y + hp_bar_height // 2))
         self.screen.blit(hp_text, hp_text_rect)
         
+        # 타임라인 표시 (T 키 안내)
+        timeline_hint = self.menu_font.render("T: 타임라인", True, (150, 150, 150))
+        self.screen.blit(timeline_hint, (20, self.height - 60))
+        
+        # 타임라인 UI
+        if self.timeline_visible:
+            self.draw_timeline()
+        
+    def draw_timeline(self):
+        """타임라인 UI 그리기"""
+        # 타임라인 박스 설정 (좌측 하단)
+        timeline_width = 600
+        timeline_height = 500
+        timeline_x = 20
+        timeline_y = self.height - timeline_height - 80
+        
+        # 반투명 배경
+        timeline_surface = pygame.Surface((timeline_width, timeline_height))
+        timeline_surface.set_alpha(220)
+        timeline_surface.fill((20, 20, 20))
+        self.screen.blit(timeline_surface, (timeline_x, timeline_y))
+        
+        # 테두리
+        pygame.draw.rect(self.screen, (0, 200, 255), 
+                        (timeline_x, timeline_y, timeline_width, timeline_height), 3)
+        
+        # 제목 (미리 생성된 폰트 사용)
+        title = self.timeline_title_font.render("오늘의 게임 타임라인", True, (0, 200, 255))
+        self.screen.blit(title, (timeline_x + 20, timeline_y + 15))
+        
+        # 이벤트 목록 (최신 것부터, 미리 생성된 폰트 사용)
+        y_offset = timeline_y + 70
+        line_height = 35
+        
+        # 최신 이벤트부터 표시 (역순) - 최대 12개
+        display_events = self.timeline_events[-12:]
+        for time_str, message in reversed(display_events):
+            # 메시지는 add_timeline_event에서 이미 잘라냄
+            event_text = self.timeline_event_font.render(f"[{time_str}] {message}", True, self.WHITE)
+            self.screen.blit(event_text, (timeline_x + 20, y_offset))
+            y_offset += line_height
+            
+            if y_offset > timeline_y + timeline_height - 30:
+                break
+    
     def update_game(self):
         """게임 로직 업데이트"""
         # 타이머 업데이트
@@ -558,6 +656,7 @@ class Game:
             self.enemy_spawn_min += 2
             self.enemy_spawn_max += 2
             self.last_difficulty_increase_time += 7
+            self.add_timeline_event(f"난이도 증가! 적 생성: {self.enemy_spawn_min}~{self.enemy_spawn_max}")
             print(f"난이도 증가! 적 생성 범위: {self.enemy_spawn_min}~{self.enemy_spawn_max}")
         
         # 적 생성 (3초마다)
@@ -567,6 +666,8 @@ class Game:
             for _ in range(spawn_count):
                 self.schedule_enemy_spawn()
             self.last_enemy_spawn = current_time
+            if spawn_count >= self.TIMELINE_LARGE_SPAWN_THRESHOLD:
+                self.add_timeline_event(f"적 대규모 공격 감지! ({spawn_count}마리)")
         
         # 예고된 적 생성 처리
         self.process_enemy_warnings(current_time)
@@ -628,6 +729,7 @@ class Game:
                         exp_increase = 3 + (((self.level - 1) // 3) * 2)
                     
                     self.required_exp += exp_increase
+                    self.add_timeline_event(f"레벨업! Lv.{self.level} 달성 (+3 간섭치)")
                     print(f"레벨업! 레벨: {self.level}, 간섭치: {self.available_points}, 다음 레벨: {self.required_exp} (증가량: +{exp_increase})")
                     # 코딩 창으로 이동 (코드는 저장됨)
                     self.state = "coding"
@@ -636,6 +738,7 @@ class Game:
         
         # 폭발 이펙트 업데이트 (0.2초 동안 범위 내 적들에게 피해)
         explosion_range_sq = self.gun_explosion_range * self.gun_explosion_range  # 제곱 미리 계산
+        killed_count = 0  # 이번 프레임에 제거된 적 수
         
         for explosion in self.explosions[:]:
             explosion_x = explosion['x']
@@ -684,10 +787,15 @@ class Game:
                                 'y': enemy_center_y + offset_y
                             })
                         self.enemies.remove(target_enemy)
+                        killed_count += 1
             
             # 0.2초 후 폭발 제거
             if current_time - explosion['spawn_time'] >= 200:
                 self.explosions.remove(explosion)
+        
+        # 제거된 적이 있으면 타임라인에 추가 (일정 수 이상일 때만)
+        if killed_count >= self.TIMELINE_MULTI_KILL_THRESHOLD:
+            self.add_timeline_event(f"적 {killed_count}마리 제거!")
         
         # 충돌 체크
         self.check_collisions()
@@ -879,9 +987,11 @@ class Game:
             if player_rect.colliderect(enemy_rect):
                 self.player_hp -= self.ENEMY_DAMAGE
                 self.enemies.pop(i)
+                self.add_timeline_event(f"적과 충돌! -{self.ENEMY_DAMAGE} HP")
                 
                 if self.player_hp <= 0:
                     self.player_hp = 0
+                    self.add_timeline_event("밴입니다. 게임 오버!")
                     self.state = "gameover"
                     return
         
@@ -893,9 +1003,11 @@ class Game:
             if player_rect.colliderect(bullet_rect):
                 self.player_hp -= self.ENEMY_BULLET_DAMAGE
                 self.enemy_bullets.remove(bullet)
+                self.add_timeline_event(f"적 총알 피격! -{self.ENEMY_BULLET_DAMAGE} HP")
                 
                 if self.player_hp <= 0:
                     self.player_hp = 0
+                    self.add_timeline_event("밴입니다. 게임 오버!")
                     self.state = "gameover"
                     return
         
@@ -933,6 +1045,9 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.state = "menu"
+                elif event.key == pygame.K_t:
+                    # T 키로 타임라인 토글
+                    self.timeline_visible = not self.timeline_visible
         
         return True
     
@@ -959,6 +1074,8 @@ class Game:
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if self.home_button.collidepoint(mouse_pos):
                     self.state = "menu"
+                    # 게임 오버 후 메뉴로 돌아갈 때 게임 변수 리셋
+                    self.reset_game_variables()
         
         return True
     
@@ -991,6 +1108,10 @@ class Game:
                                 self.init_game_variables()
                                 self.game_start_time = pygame.time.get_ticks()
                                 self.last_difficulty_increase_time = 0
+                                self.add_timeline_event("게임 시작! AI를 해킹하라!")
+                            else:
+                                # 게임 진행 중 업그레이드일 때만 기록
+                                self.add_timeline_event(f"무기 업그레이드 완료 (레벨 {self.level})")
                             print(f"입력된 코드: {self.code_input}")
                             print(f"총 설정 - 데미지: {self.gun_damage}, 공격속도: {self.gun_attack_speed} (발사간격: {self.gun_fire_interval}ms), 폭발범위: {self.gun_explosion_range}")
                         else:
